@@ -29,6 +29,7 @@
             <div class="flipper flipper-left"></div><div class="flipper flipper-right"></div>
             <div class="foot foot-left"></div><div class="foot foot-right"></div>
             <div class="coat"><div class="belly"></div></div>
+            <div class="scarf"><span></span></div>
             <div class="head">
               <div class="face"></div>
               <div class="eye eye-left"></div><div class="eye eye-right"></div>
@@ -40,6 +41,11 @@
           </div>
         </div>
         <video id="clip" muted playsinline preload="none" aria-hidden="true" hidden></video>
+        <div id="scene-decor" aria-hidden="true">
+          <div class="study-lamp"></div>
+          <div class="study-books"><i></i><i></i><i></i></div>
+          <img id="scene-art" alt="" hidden>
+        </div>
         <div class="stage-message" id="stage-bubble" hidden>
           <p id="stage-message" role="status"></p>
           <ul id="stage-choices" aria-label="可选回应" hidden></ul>
@@ -120,6 +126,7 @@
   <dialog id="growth-dialog" aria-labelledby="growth-title">
     <div class="row"><h2 id="growth-title">成长与性格</h2><form method="dialog"><button>关闭</button></form></div>
     <p id="growth-summary" class="note"></p>
+    <p id="growth-rewards" class="note"></p>
     <div id="traits" class="traits"></div>
     <p class="note">摸头增加亲人，投喂增加活泼，玩耍增加好奇，完成自习增加专注。</p>
   </dialog>

@@ -86,6 +86,7 @@ h2 { font-size: 1rem; }
   background: #71d6c7;
 }
 .stage-message {
+  z-index: 2;
   bottom: 4%;
   max-width: 90%;
   max-height: 60%;
@@ -99,7 +100,7 @@ h2 { font-size: 1rem; }
   overflow-wrap: anywhere;
   background: #142431;
 }
-#stage-message { white-space: pre-line; }
+#stage-message, #growth-rewards { white-space: pre-line; }
 #stage-choices {
   display: flex;
   flex-wrap: wrap;
@@ -140,6 +141,53 @@ h2 { font-size: 1rem; }
     scale(var(--scale-x, 1), var(--scale-y, 1));
 }
 #clip { width: 100%; height: 100%; object-fit: contain; position: absolute; inset: 0; }
+#scene-decor { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+#scene-decor[data-room=study] { display: block; }
+#scene-art { width: 100%; height: 100%; object-fit: contain; }
+#scene-decor:has(#scene-art:not([hidden])) :is(.study-lamp, .study-books) { display: none; }
+.study-lamp {
+  position: absolute;
+  width: min(14cqw, 24cqh);
+  height: min(25cqw, 37cqh);
+  bottom: calc(50% - min(26cqw, 28cqh));
+  left: 9%;
+  background: linear-gradient(#dfae70, #7c583c) center 72% / 6% 53% no-repeat,
+    radial-gradient(ellipse at center, #967458 0 68%, transparent 71%) center bottom / 76% 9% no-repeat;
+}
+.study-lamp::before {
+  content: '';
+  display: block;
+  height: 43%;
+  background: linear-gradient(107deg, #a96235, #ffd89c 49%, #c48653);
+  clip-path: polygon(28% 0, 72% 0, 100% 100%, 0 100%);
+}
+.study-books {
+  position: absolute;
+  width: min(15cqw, 25cqh);
+  bottom: calc(50% - min(26cqw, 28cqh));
+  right: 9%;
+  display: grid;
+  gap: .45cqh;
+}
+.study-books i {
+  height: min(2.7cqw, 4cqh);
+  border-radius: .5cqh;
+  background: linear-gradient(to right, #b9714e 0 14%, #e9c499 14% 90%, #b9714e 90%);
+  border-block: .45cqh solid #b9714e;
+  transform: rotate(-5deg);
+}
+.study-books i:nth-child(2) {
+  margin-left: 11%;
+  background: linear-gradient(to right, #4e8c88 0 14%, #dae6d8 14% 90%, #4e8c88 90%);
+  border-color: #4e8c88;
+  transform: rotate(3deg);
+}
+.study-books i:nth-child(3) {
+  margin-right: 11%;
+  background: linear-gradient(to right, #706caa 0 14%, #e3dce9 14% 90%, #706caa 90%);
+  border-color: #706caa;
+  transform: none;
+}
 .penguin-frame {
   width: min(62cqw, 70cqh);
   aspect-ratio: 1;
@@ -156,6 +204,29 @@ h2 { font-size: 1rem; }
   animation: breathe 3.8s ease-in-out infinite;
 }
 .penguin > *, .head > *, .belly { position: absolute; }
+.scarf { display: none; }
+[data-outfit=scarf] .scarf {
+  display: block;
+  z-index: 1;
+  top: 56%;
+  left: 14%;
+  width: 72%;
+  height: 11%;
+  border-radius: 22% 22% 42% 42%;
+  transform: rotate(-5deg);
+  background: linear-gradient(#e08075, #a64650);
+  box-shadow: inset 0 -.12em #752f3d;
+}
+.scarf span {
+  position: absolute;
+  width: 24%;
+  height: 300%;
+  top: 55%;
+  right: 12%;
+  border-radius: 15% 20% 16% 16%;
+  transform: rotate(-13deg);
+  background: repeating-linear-gradient(0deg, #db7971 0 28%, #ffb493 30% 42%, #c2595e 44% 63%);
+}
 .coat {
   inset: 37% 12% 8%;
   border-radius: 44% 44% 48% 48%;
@@ -230,6 +301,8 @@ h2 { font-size: 1rem; }
 [data-state=feed] .penguin { animation: nibble .44s ease-in-out 5; }
 [data-state=happy] .penguin { animation: hop .58s ease-in-out 3; }
 [data-state=play] .penguin { animation: rock .7s ease-in-out 4; }
+[data-state=wave][data-direction=left] .flipper-left { animation: wave-left 2s ease-in-out; }
+[data-state=wave][data-direction=right] .flipper-right { animation: wave-right 2s ease-in-out; }
 [data-state=idle_glance] .head { animation: idle-glance 2.1s ease-in-out; }
 [data-state=idle_lean] .penguin { animation: idle-lean 2.1s ease-in-out; }
 [data-state=idle_hop] .penguin { animation: hop .7s ease-in-out 2; }
@@ -242,6 +315,14 @@ h2 { font-size: 1rem; }
 @keyframes nibble { 50% { scale: 1.02 .93; } }
 @keyframes hop { 50% { translate: 0 -8%; } }
 @keyframes drift { 50% { translate: 0 -25%; opacity: .65; } }
+@keyframes wave-left {
+  20%, 50%, 76% { transform: rotate(133deg); }
+  35%, 65% { transform: rotate(100deg); }
+}
+@keyframes wave-right {
+  20%, 50%, 76% { transform: rotate(-133deg) scaleX(-1); }
+  35%, 65% { transform: rotate(-100deg) scaleX(-1); }
+}
 @keyframes idle-glance {
   32% { translate: -7%; rotate: -5deg; }
   72% { translate: 7%; rotate: 5deg; }
@@ -316,5 +397,5 @@ dialog::backdrop { background: #0a1526aa; }
   .focus-control { margin-bottom: 7px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .penguin, .head, .eye, .sleep-mark, .sparkle { animation: none !important; }
+  .penguin, .head, .eye, .flipper, .sleep-mark, .sparkle { animation: none !important; }
 }
