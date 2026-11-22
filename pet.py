@@ -16,8 +16,17 @@ MOODS = {
     "focus": "陪你自习",
 }
 STAGES = [(0, "幼体"), (60, "幼崽"), (180, "成长期"), (400, "成熟期")]
+REWARDS = {
+    60: (("wave", "挥手"), ("scarf", "围巾")),
+    180: (("study_invite", "主动邀约自习"), ("study", "书房")),
+}
+APPEARANCE = {
+    "room": (("plain", "默认场景"), ("study", "书房")),
+    "outfit": (("plain", "默认服装"), ("scarf", "围巾")),
+}
 COOLDOWNS = {"pat": 4, "feed": 6, "play": 20, "sleep": 1, "focus": 1}
 SCENE_SECONDS = {"pat": 1.8, "feed": 2.8, "play": 3.2, "look": 1.8, "happy": 1.8, "sad": 2.1}
+WAVE_SECONDS = 2.2
 IDLE_MOTION_SECONDS = {
     "idle_glance": 2.2, "idle_lean": 2.2, "idle_hop": 2.2,
     "sleep_shift": 3.2, "focus_stretch": 2.6,
@@ -25,9 +34,13 @@ IDLE_MOTION_SECONDS = {
 MAX_OFFLINE_SECONDS = 8 * 3600
 MENU_TIMEOUT = 30
 MENUS = {
-    "activities": ("想一起做点什么？", (("pat", "摸摸头"), ("feed", "投喂"), ("invite", "玩耍"), ("back", "返回"))),
+    "activities": ("想一起做点什么？", (
+        ("pat", "摸摸头"), ("feed", "投喂"), ("invite", "玩耍"),
+        ("room", "换场景"), ("outfit", "换装"), ("back", "返回"),
+    )),
     "invite": ("要不要一起玩？", (("play", "一起玩"), ("later", "晚点吧"))),
     "pat_invite": ("你忙完啦？可以摸摸我的头吗？", (("pat", "摸摸头"), ("later", "晚点吧"))),
+    "study_invite": ("要不要一起自习？", (("focus", "一起自习"), ("later", "晚点吧"))),
 }
 
 
@@ -68,6 +81,8 @@ class Pet:
     play_event_id: int = 0
     idle_motion: str = ""
     last_idle_at: float = 0.0
+    room: str = "plain"
+    outfit: str = "plain"
 
     @classmethod
     def new(cls, now):
@@ -103,6 +118,8 @@ class Pet:
         return completed
 
     def grow(self, xp, bond, trait, change):
+        if self.menu_kind in APPEARANCE and self.rewards_at(self.xp) != self.rewards_at(self.xp + xp):
+            self.close_menu()
         self.xp += xp
         self.bond = bounded(self.bond + bond)
         score = self.traits[trait]
@@ -136,7 +153,9 @@ class Pet:
         if self.focus_phase == "work":
             return "focus", ""
         if now < self.scene_until:
-            return self.scene, self.direction if self.scene == "look" else ""
+            if self.scene == "look":
+                return ("look" if now < self.motion_until else "wave"), self.direction
+            return self.scene, ""
         mood = self.mood(now)
         return ("bored" if mood in {"bored", "lonely", "tired"} else "idle"), ""
 
@@ -192,8 +211,17 @@ class Pet:
         self.menu_index = 0
         self.menu_until = 0
 
+    def menu_content(self):
+        if self.menu_kind in APPEARANCE:
+            choices = APPEARANCE[self.menu_kind]
+            name = dict(choices)[getattr(self, self.menu_kind)]
+            options = tuple((value, label) for value, label in choices
+                            if value == "plain" or self.has_reward(value))
+            return f"当前搭配 · {name}", (*options, ("back", "返回"))
+        return MENUS.get(self.menu_kind, ("", ()))
+
     def menu_view(self):
-        prompt, options = MENUS.get(self.menu_kind, ("", ()))
+        prompt, options = self.menu_content()
         return {"revision": self.menu_revision, "prompt": prompt, "selected": self.menu_index,
                 "choices": [label for _, label in options]}
 
@@ -204,16 +232,23 @@ class Pet:
         if not self.menu_kind:
             self.open_menu("activities", now)
         elif key == "center":
-            action = MENUS[self.menu_kind][1][self.menu_index][0]
-            if action != "invite":
-                self.close_menu()
-                if action == "later":
-                    self.speak("好呀，你忙。我在这里。", now, 5)
-                return action if action in COOLDOWNS else None
-            self.open_menu("invite", now)
+            action, label = self.menu_content()[1][self.menu_index]
+            if action == "invite" or action in APPEARANCE:
+                self.open_menu(action, now)
+                return None
+            if self.menu_kind in APPEARANCE:
+                if action == "back":
+                    self.open_menu("activities", now)
+                    return None
+                setattr(self, self.menu_kind, action)
+                self.speak(f"换好啦，{label}。", now, 5)
+            elif action == "later":
+                self.speak("好呀，你忙。我在这里。", now, 5)
+            self.close_menu()
+            return action if action in COOLDOWNS else None
         else:
             offset = -1 if key == "left" else 1
-            self.menu_index = (self.menu_index + offset) % len(MENUS[self.menu_kind][1])
+            self.menu_index = (self.menu_index + offset) % len(self.menu_content()[1])
             self.refresh_menu(now)
         return None
 
@@ -225,7 +260,8 @@ class Pet:
             self.close_menu()
         if (self.mode != "sleep" and self.focus_phase != "work" and not self.menu_kind
                 and (now >= self.scene_until or self.scene == "look") and not self.play_event_id):
-            self.react("look", now)
+            duration = SCENE_SECONDS["look"] + (WAVE_SECONDS if self.has_reward("wave") else 0)
+            self.react("look", now, duration)
             self.speak(
                 "左边有人挥手，我看到啦。" if direction == "left" else "嗨，右边有动静！",
                 now, 3,
@@ -290,6 +326,14 @@ class Pet:
         self.react(action, now)
         return True, action, line
 
+    @staticmethod
+    def rewards_at(xp):
+        return {reward: label for minimum, rewards in REWARDS.items() if xp >= minimum
+                for reward, label in rewards}
+
+    def has_reward(self, reward):
+        return reward in self.rewards_at(self.xp)
+
     def progress(self):
         index = max(i for i, (xp, _) in enumerate(STAGES) if self.xp >= xp)
         base, stage = STAGES[index]
@@ -297,6 +341,9 @@ class Pet:
         return {
             "stage": stage, "xp": self.xp, "next": goal,
             "percent": round(100 * (self.xp - base) / (goal - base)) if goal else 100,
+            "unlocked": list(self.rewards_at(self.xp)),
+            "rewards": [{"xp": minimum, "labels": [label for _, label in rewards]}
+                        for minimum, rewards in REWARDS.items()],
         }
 
     def view(self, now):
@@ -313,6 +360,7 @@ class Pet:
             "mode": self.mode,
             "scene": scene,
             "menu": self.menu_view(),
+            "appearance": {"room": self.room, "outfit": self.outfit},
             "direction": direction,
             "message": self.message if now < self.message_until else "",
             "focus": {

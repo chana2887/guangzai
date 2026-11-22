@@ -4,6 +4,7 @@ const element = (id) => document.getElementById(id);
 const display = new Display({
   optics: element('optics'), character: element('character'),
   video: element('clip'), form: element('optics-form'),
+  decor: element('scene-decor'), sceneArt: element('scene-art'),
 });
 const chat = element('chat');
 const chatStatus = element('chat-status');
@@ -64,10 +65,12 @@ function render(next) {
   if (state && next.serverTime < state.serverTime) return;
   state = next;
 
-  const sceneKey = [next.scene, next.direction, next.scene === 'look' ? next.hardware.event : 0].join('/');
+  const { room, outfit } = next.appearance;
+  const gesture = ['look', 'wave'].includes(next.scene) ? next.hardware.event : 0;
+  const sceneKey = [next.scene, next.direction, gesture, room, outfit].join('/');
   if (sceneKey !== renderedScene) {
     renderedScene = sceneKey;
-    display.show(next.scene, next.direction);
+    display.show(next.scene, next.direction, { room, outfit });
   }
   element('mood').textContent = next.mood;
   const menu = next.menu;
@@ -94,6 +97,9 @@ function render(next) {
   const xp = next.growth.next ? `${next.growth.xp} / ${next.growth.next} 经验` : `${next.growth.xp} 经验 · 已成熟`;
   element('growth').title = xp;
   element('growth-summary').textContent = `${next.growth.stage} · ${xp}`;
+  element('growth-rewards').textContent = next.growth.rewards.map(({ xp, labels }) =>
+    `${next.growth.xp >= xp ? '已解锁' : xp + ' 经验解锁'} · ${labels.join('、')}`
+  ).join('\n');
   metrics(element('needs'), next.needs);
   metrics(element('traits'), next.traits);
   metrics(element('today'), next.today);

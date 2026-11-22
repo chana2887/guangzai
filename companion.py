@@ -44,16 +44,22 @@ class Companion:
             self.notebook.save(db, pet)
 
     def milestone(self, db, pet, previous, now):
-        stage = pet.progress()["stage"]
-        if stage != previous:
+        current = pet.progress()
+        stage = current["stage"]
+        if stage != previous["stage"]:
             self.notebook.add_event(db, "level", f"光崽成长为{stage}。", now)
+        rewards = {reward: label for reward, label in pet.rewards_at(pet.xp).items()
+                   if reward not in previous["unlocked"]}
+        if rewards:
+            names = "、".join(rewards.values())
+            self.notebook.add_event(db, "unlock", f"光崽解锁了{names}。", now, rewards=list(rewards))
 
     def advance(self, db, pet, now):
         if pet.play_is_due(now):
             self.notebook.add_event(db, "play_done", "和光崽一起玩完了一轮。", pet.scene_until,
                                     play_event_id=pet.play_event_id)
             pet.play_event_id = 0
-        previous = pet.progress()["stage"]
+        previous = pet.progress()
         for kind, finished_at, minutes in pet.advance(now):
             self.notebook.add_event(db, kind, f"一起自习了 {minutes} 分钟。", finished_at,
                                     minutes=minutes)
@@ -110,7 +116,9 @@ class Companion:
             return False
         if mood in {"lonely", "bored"}:
             affection, playfulness = pet.traits["affection"], pet.traits["curiosity"]
-            if affection >= 55 and affection > playfulness:
+            if pet.has_reward("study_invite") and (self.demo_nudge_at is not None or self.rng.random() < 0.5):
+                pet.open_menu("study_invite", now, proactive=True)
+            elif affection >= 55 and affection > playfulness:
                 pet.open_menu("pat_invite", now, proactive=True)
             elif playfulness >= 55 or self.notebook.has_completed_play(db):
                 pet.open_menu("invite", now, proactive=True)
@@ -171,7 +179,7 @@ class Companion:
             return result
 
     def apply_care(self, db, pet, action, now, minutes=25, dialogue_revision=None):
-        stage = pet.progress()["stage"]
+        previous = pet.progress()
         accepted, kind, message = pet.care(action, now, minutes)
         if accepted:
             if kind == "play":
@@ -180,7 +188,7 @@ class Companion:
                 )
             else:
                 self.notebook.add_event(db, kind, message, now)
-            self.milestone(db, pet, stage, now)
+            self.milestone(db, pet, previous, now)
         pet.speak(message, now, 5)
         return accepted
 
@@ -240,7 +248,7 @@ class Companion:
                 now = self.clock()
                 pet = self.notebook.pet(db, now)
                 self.advance(db, pet, now)
-                stage = pet.progress()["stage"]
+                previous = pet.progress()
                 pet.grow(3, 1.5, "affection", 1.5)
                 pet.company = min(100, pet.company + 8)
                 pet.last_interaction = now
@@ -253,7 +261,7 @@ class Companion:
                 for learned in assertions:
                     self.notebook.save_fact(db, learned, now)
                 self.notebook.add_event(db, "chat", text, now, reply=reply, source=source)
-                self.milestone(db, pet, stage, now)
+                self.milestone(db, pet, previous, now)
                 self.notebook.save(db, pet)
                 view = self.view(db, pet, self.hardware.snapshot(), now)
             return {"reply": reply, "source": source, "state": view}

@@ -42,6 +42,71 @@ class CompanionTests(unittest.TestCase):
         revision = self.pet.state()["menu"]["revision"]
         return self.pet.button(name, revision)["state"]
 
+    def choose(self, label):
+        state = self.pet.state()
+        if not state["menu"]["choices"]:
+            state = self.key("center")
+        choices = state["menu"]["choices"]
+        for _ in range((choices.index(label) - state["menu"]["selected"]) % len(choices)):
+            self.key("right")
+        return self.key("center")
+
+    def set_xp(self, xp):
+        with self.pet.notebook.transaction(write=True) as db:
+            profile = self.pet.notebook.pet(db, self.clock())
+            profile.xp = xp
+            self.pet.notebook.save(db, profile)
+
+    def test_growth_unlocks_are_recorded_once_and_enable_wave(self):
+        self.set_xp(56)
+        profile = self.pet.state()
+        self.assertEqual(profile["appearance"], {"room": "plain", "outfit": "plain"})
+        self.assertEqual(profile["growth"]["unlocked"], [])
+        self.choose("换装")
+        self.assertNotIn("围巾", self.pet.state()["menu"]["choices"])
+        self.choose("返回")
+        self.choose("返回")
+        self.pet.interact("pat")
+        self.assertIn("wave", self.pet.state()["growth"]["unlocked"])
+        self.clock.step(5)
+        self.pet = self.open()
+        self.hardware.simulate("left")
+        self.assertEqual(self.pet.state()["scene"], "look")
+        self.clock.step(2)
+        self.assertEqual(self.pet.state()["scene"], "wave")
+        self.assertEqual(self.pet.state()["direction"], "left")
+        unlocks = [row for row in self.pet.history("events") if row["kind"] == "unlock"]
+        self.assertEqual(len(unlocks), 1)
+        self.assertEqual(unlocks[0]["data"]["rewards"], ["wave", "scarf"])
+
+    def test_appearance_is_independent_and_survives_restart(self):
+        self.set_xp(180)
+        with self.pet.notebook.transaction(write=True) as db:
+            db.execute("UPDATE pet SET data = json_remove(data, '$.room', '$.outfit')")
+        self.pet = self.open()
+        self.assertEqual(self.pet.state()["appearance"], {"room": "plain", "outfit": "plain"})
+        self.choose("换装")
+        self.choose("围巾")
+        self.choose("换场景")
+        self.choose("书房")
+        self.pet = self.open()
+        self.assertEqual(self.pet.state()["appearance"], {"room": "study", "outfit": "scarf"})
+        self.choose("换场景")
+        self.choose("默认场景")
+        self.assertEqual(self.pet.state()["appearance"], {"room": "plain", "outfit": "scarf"})
+        self.choose("换装")
+        self.choose("默认服装")
+        self.assertEqual(self.pet.state()["appearance"], {"room": "plain", "outfit": "plain"})
+
+    def test_grown_demo_pet_can_propose_study_with_three_buttons(self):
+        self.set_xp(180)
+        self.pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+        self.clock.step(106)
+        self.assertIn("一起自习", self.pet.state()["menu"]["choices"])
+        state = self.choose("一起自习")
+        self.assertEqual(state["focus"]["phase"], "work")
+        self.assertEqual(state["focus"]["minutes"], 25)
+
     def test_menu_opens_navigates_and_confirms_once_across_clients(self):
         self.assertIn("menu", self.pet.state())
         self.assertEqual(self.key("center")["menu"]["selected"], 0)

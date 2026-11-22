@@ -15,7 +15,7 @@ LABELS = {
     "pat": "摸摸头", "feed": "投喂", "play": "开始玩耍", "play_done": "完成玩耍",
     "sleep": "睡觉", "wake": "醒来",
     "focus_start": "开始自习", "focus_done": "完成自习", "focus_stop": "结束计时",
-    "chat": "对话", "gesture": "挥手", "level": "成长",
+    "chat": "对话", "gesture": "挥手", "level": "成长", "unlock": "解锁",
 }
 FACT_LABELS = {"name": "称呼", "like": "偏好", "habit": "习惯", "plan": "计划", "note": "便签"}
 DAILY_GOALS = {"pat": ("摸头", 2), "feed": ("投喂", 1), "chat": ("聊天", 2), "focus_done": ("自习分钟", 25)}
@@ -92,7 +92,13 @@ class Notebook:
     @staticmethod
     def pet(db, now):
         row = db.execute("SELECT data FROM pet WHERE id = 1").fetchone()
-        return Pet(**json.loads(row["data"])) if row else Pet.new(now)
+        if not row:
+            return Pet.new(now)
+        data = json.loads(row["data"])
+        pet = Pet(**data)
+        if "room" not in data and pet.menu_kind == "activities":
+            pet.close_menu()
+        return pet
 
     @staticmethod
     def save(db, pet):
