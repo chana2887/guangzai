@@ -86,14 +86,37 @@ h2 { font-size: 1rem; }
   background: #71d6c7;
 }
 .stage-message {
-  bottom: 6%;
-  max-width: 87%;
-  padding: .75rem 1.05rem;
-  border: 1px solid #afc4d23d;
-  border-radius: 14px;
+  bottom: 4%;
+  max-width: 90%;
+  max-height: 60%;
+  overflow-y: auto;
+  padding: .6em 1em;
+  border: 1px solid #799fae;
+  border-radius: 16px;
+  font-size: clamp(.94rem, 3.2cqmin, 1.65rem);
+  line-height: 1.45;
   text-align: center;
   overflow-wrap: anywhere;
-  background: #101c2aec;
+  background: #142431;
+}
+#stage-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .3em;
+  margin: .45em 0 0;
+  padding: 0;
+  list-style: none;
+}
+#stage-choices li { padding: .16em .58em; border-radius: 2em; color: #ccdae2; }
+#stage-choices [aria-current=true] { background: #aeefdb; color: #0b3029; font-weight: 700; }
+.optics.choosing .penguin-frame { translate: 0 -7cqh; }
+.key-panel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.device-keys { display: flex; gap: 6px; }
+.device-keys button { min-width: 44px; min-height: 40px; }
+.device-keys .primary:hover { background: #12564f; }
+@media (max-width: 420px) {
+  .key-panel .note { font-size: .73rem; }
 }
 .focus-clock {
   position: absolute;

@@ -52,7 +52,7 @@ class Companion:
 
     @staticmethod
     def can_nudge(pet, now):
-        return (pet.mode == "awake" and pet.focus_phase != "work" and pet.scene_until <= now and
+        return (pet.mode == "awake" and not pet.menu_kind and pet.focus_phase != "work" and pet.scene_until <= now and
                 now - max(pet.last_interaction, pet.last_nudge_at) >= NUDGE_SECONDS and
                 (pet.nudge_day != day_of(now) or pet.nudge_count < 3))
 
@@ -88,6 +88,7 @@ class Companion:
 
     def state_needs_write(self, pet, new_gesture, now):
         return (new_gesture or (pet.focus_phase and now >= pet.focus_until) or
+                (pet.menu_kind and now >= pet.menu_until) or
                 now - pet.updated_at >= 300 or self.can_nudge(pet, now))
 
     def state(self):
@@ -112,17 +113,36 @@ class Companion:
             self.last_event = report["event"]
             return result
 
+    def apply_care(self, db, pet, action, now, minutes=25):
+        stage = pet.progress()["stage"]
+        accepted, kind, message = pet.care(action, now, minutes)
+        if accepted:
+            self.notebook.add_event(db, kind, message, now)
+            self.milestone(db, pet, stage, now)
+        pet.speak(message, now, 5)
+        return accepted
+
+    def button(self, key, revision):
+        with self.notebook.transaction(write=True) as db:
+            now = self.clock()
+            pet = self.notebook.pet(db, now)
+            self.advance(db, pet, now)
+            accepted = revision == pet.menu_revision
+            if accepted:
+                action = pet.press(key, now)
+                if action:
+                    self.apply_care(db, pet, action, now)
+            self.notebook.save(db, pet)
+            result = self.view(db, pet, self.hardware.snapshot(), now)
+        return {"accepted": accepted, "state": result}
+
     def interact(self, action, minutes=25):
         with self.notebook.transaction(write=True) as db:
             now = self.clock()
             pet = self.notebook.pet(db, now)
             self.advance(db, pet, now)
-            stage = pet.progress()["stage"]
-            accepted, kind, message = pet.care(action, now, minutes)
-            if accepted:
-                self.notebook.add_event(db, kind, message, now)
-                self.milestone(db, pet, stage, now)
-            pet.speak(message, now, 5)
+            pet.close_menu()
+            accepted = self.apply_care(db, pet, action, now, minutes)
             self.notebook.save(db, pet)
             result = self.view(db, pet, self.hardware.snapshot(), now)
         return {"accepted": accepted, "state": result}
@@ -142,6 +162,7 @@ class Companion:
                     pet.react("think", now, 10)
                 pet.last_interaction = now
                 facts = self.notebook.facts(db)
+                pet.close_menu()
                 recent = [event for event in self.notebook.events(db, 100) if event["kind"] == "chat"][:4]
                 self.notebook.save(db, pet)
             relevant = self.notebook.find(text, facts, "display", limit=5)

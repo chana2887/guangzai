@@ -40,9 +40,20 @@
           </div>
         </div>
         <video id="clip" muted playsinline preload="none" aria-hidden="true" hidden></video>
+        <div class="stage-message" id="stage-bubble" hidden>
+          <p id="stage-message" role="status"></p>
+          <ul id="stage-choices" aria-label="可选回应" hidden></ul>
+        </div>
       </div>
-      <p id="stage-message" class="stage-message console" hidden></p>
       <div id="focus-clock" class="focus-clock console" hidden></div>
+      </section>
+      <section class="card key-panel console" aria-label="模拟装置按键">
+        <div><h2>模拟装置按键</h2><p class="note">按任一键打开菜单 · 键盘 ← → 切换，Enter 确认</p></div>
+        <div class="device-keys">
+          <button type="button" data-key="left" aria-label="模拟左键">←</button>
+          <button type="button" data-key="center" class="primary">确认</button>
+          <button type="button" data-key="right" aria-label="模拟右键">→</button>
+        </div>
       </section>
       <section class="card daily console" aria-label="今日陪伴">
         <h2>今日陪伴</h2>

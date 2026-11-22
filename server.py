@@ -136,7 +136,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.local_origin():
             return self.send_error(403)
         path = urlsplit(self.path).path
-        if path not in {"/api/interact", "/api/chat", "/api/gesture"}:
+        if path not in {"/api/interact", "/api/chat", "/api/gesture", "/api/button"}:
             return self.json_response(404, {"error": "接口不存在"})
         if self.headers.get_content_type() != "application/json":
             return self.json_response(415, {"error": "需要 JSON 数据"})
@@ -149,6 +149,11 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError
         except (ValueError, TypeError):
             return self.json_response(400, {"error": "无效的请求"})
+        if path == "/api/button":
+            key, revision = payload.get("key"), payload.get("revision")
+            if key not in ("left", "right", "center") or type(revision) is not int or revision < 0:
+                return self.json_response(400, {"error": "按键或选项版本无效"})
+            return self.json_response(200, self.companion.button(key, revision))
         if path == "/api/interact":
             action, minutes = payload.get("action"), payload.get("minutes", 25)
             if (not isinstance(action, str) or action not in ACTIONS or

@@ -34,6 +34,43 @@ class CompanionTests(unittest.TestCase):
     def open(self):
         return Companion(self.path, self.hardware, LocalProvider(), self.clock)
 
+    def key(self, name):
+        revision = self.pet.state()["menu"]["revision"]
+        return self.pet.button(name, revision)["state"]
+
+    def test_menu_opens_navigates_and_confirms_once_across_clients(self):
+        self.assertIn("menu", self.pet.state())
+        self.assertEqual(self.key("center")["menu"]["selected"], 0)
+        self.assertEqual(self.pet.history("events"), [])
+        menu = self.key("right")["menu"]
+        self.assertEqual(menu["choices"][menu["selected"]], "投喂")
+        self.assertEqual(self.open().state()["menu"], menu)
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            results = list(workers.map(lambda _: self.pet.button("center", menu["revision"]), range(2)))
+        self.assertEqual(sum(result["accepted"] for result in results), 1)
+        self.assertEqual(self.pet.state()["scene"], "feed")
+        self.assertEqual([event["kind"] for event in self.pet.history("events")], ["feed"])
+
+    def test_play_prompt_confirm_decline_and_expiry(self):
+        self.assertIn("menu", self.pet.state())
+        for ending in ("decline", "expire", "accept"):
+            self.key("left")
+            self.key("right")
+            self.key("right")
+            menu = self.key("center")["menu"]
+            self.assertEqual(menu["choices"], ["一起玩", "晚点吧"])
+            if ending == "expire":
+                self.clock.step(31)
+                self.assertFalse(self.pet.button("center", menu["revision"])["accepted"])
+            else:
+                if ending == "decline":
+                    self.key("left")
+                state = self.key("center")
+                self.assertTrue(state["message"])
+                self.assertEqual(state["scene"] == "play", ending == "accept")
+            self.assertFalse(self.pet.state()["menu"]["choices"])
+        self.assertEqual([e["kind"] for e in self.pet.history("events")], ["play"])
+
     def test_care_persists_and_cooldowns_prevent_duplicate_growth(self):
         with ThreadPoolExecutor(max_workers=4) as workers:
             results = list(workers.map(lambda _: self.pet.interact("pat"), range(4)))

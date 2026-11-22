@@ -15,6 +15,8 @@ const turns = { center: '居中', left: '向左', right: '向右' };
 const cachedMetrics = new WeakMap();
 let state;
 let renderedScene = '';
+let renderedMenuRevision = -1;
+let pendingKeys = null;
 let submittingChat = false;
 let lastReplySource = '';
 let memoryType = 'facts';
@@ -68,9 +70,23 @@ function render(next) {
     display.show(next.scene, next.direction);
   }
   element('mood').textContent = next.mood;
-  const bubble = element('stage-message');
-  bubble.hidden = !next.message;
-  bubble.textContent = next.message;
+  const menu = next.menu;
+  const line = menu.prompt || next.message;
+  element('stage-bubble').hidden = !line;
+  const message = element('stage-message');
+  if (message.textContent !== line) message.textContent = line;
+  if (renderedMenuRevision !== menu.revision) {
+    renderedMenuRevision = menu.revision;
+    const choices = element('stage-choices');
+    choices.hidden = !menu.choices.length;
+    element('optics').classList.toggle('choosing', !choices.hidden);
+    choices.replaceChildren(...menu.choices.map((label, index) => {
+      const choice = document.createElement('li');
+      choice.textContent = label;
+      if (index === menu.selected) choice.setAttribute('aria-current', 'true');
+      return choice;
+    }));
+  }
 
   element('open-growth').textContent = `${next.growth.stage} · ${next.personality}`;
   element('bond').textContent = next.bond;
@@ -104,9 +120,25 @@ function render(next) {
 }
 
 function inform(text) {
-  const message = element('stage-message');
-  message.textContent = text;
-  message.hidden = false;
+  element('stage-message').textContent = text;
+  element('stage-bubble').hidden = false;
+}
+
+function pressKey(key) {
+  if (!state) return;
+  // Rapid presses from this window follow its last confirmed selection.
+  const previous = pendingKeys || Promise.resolve(state.menu.revision);
+  const next = previous.then(async (revision) => {
+    if (revision === null) return null;
+    const result = await request('/api/button', { body: { key, revision } });
+    render(result.state);
+    return result.accepted ? result.state.menu.revision : null;
+  }).catch(() => {
+    inform('这次按键没有收到回复，请再试一次。');
+    return null;
+  });
+  pendingKeys = next;
+  next.then(() => { if (pendingKeys === next) pendingKeys = null; });
 }
 
 async function poll() {
@@ -266,18 +298,24 @@ for (const button of document.querySelectorAll('[data-action]')) {
 for (const button of document.querySelectorAll('[data-zone]')) {
   button.addEventListener('click', () => gesture(button.dataset.zone));
 }
+for (const button of document.querySelectorAll('[data-key]')) {
+  button.addEventListener('click', () => pressKey(button.dataset.key));
+}
 document.addEventListener('keydown', (event) => {
-  if (event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey ||
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey ||
       event.target.closest?.('input, select, textarea, dialog, [contenteditable]')) return;
+  if (event.key === 'Enter' && !state?.menu.choices.length &&
+      event.target.closest?.('button:not([data-key]), a')) return;
   const handlers = {
     g: toggleProjection, '1': () => action('pat'), '2': () => action('feed'),
     '3': () => action('play'), '4': () => action('sleep'), '5': () => action('focus'),
-    arrowleft: () => gesture('left'), arrowdown: () => gesture('both'), arrowright: () => gesture('right'),
+    arrowleft: () => pressKey('left'), arrowright: () => pressKey('right'), enter: () => pressKey('center'),
+    a: () => gesture('left'), arrowdown: () => gesture('both'), d: () => gesture('right'),
   };
   const handle = handlers[event.key.toLowerCase()];
   if (handle) {
     event.preventDefault();
-    handle();
+    if (!event.repeat) handle();
   }
 });
 
