@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>光崽 · 桌面伙伴</title>
+  <link rel="stylesheet" href="/style.css">
+  <script>if (new URLSearchParams(location.search).get('projection') === '1') document.documentElement.classList.add('projection');</script>
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead console">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">✦</span><h1>光崽</h1></div>
+      <div class="display-buttons">
+        <button id="open-memory" type="button">记忆簿</button>
+        <button id="open-optics" type="button">画面校准</button>
+        <button id="fullscreen" type="button">全屏</button>
+        <button id="projection" class="primary" type="button">投影模式</button>
+      </div>
+    </header>
+    <div class="display-column">
+      <section class="stage" id="stage" aria-label="宠物画面">
+      <div class="stage-label console"><span class="indicator"></span><span id="mood">待机</span></div>
+      <div class="optics" id="optics">
+        <div class="penguin-frame" id="character" aria-hidden="true">
+          <div class="penguin">
+            <div class="flipper flipper-left"></div><div class="flipper flipper-right"></div>
+            <div class="foot foot-left"></div><div class="foot foot-right"></div>
+            <div class="coat"><div class="belly"></div></div>
+            <div class="head">
+              <div class="face"></div>
+              <div class="eye eye-left"></div><div class="eye eye-right"></div>
+              <div class="cheek cheek-left"></div><div class="cheek cheek-right"></div>
+              <div class="beak"></div>
+            </div>
+            <div class="sleep-mark">z<sup>z</sup></div>
+            <div class="sparkle">✦</div>
+          </div>
+        </div>
+        <video id="clip" muted playsinline preload="none" aria-hidden="true" hidden></video>
+      </div>
+      <p id="stage-message" class="stage-message console" hidden></p>
+      <div id="focus-clock" class="focus-clock console" hidden></div>
+      </section>
+      <section class="card daily console" aria-label="今日陪伴">
+        <h2>今日陪伴</h2>
+        <div id="today"></div>
+      </section>
+    </div>
+    <aside class="controls console">
+      <section class="card companion" aria-label="宠物互动">
+        <div class="pet-heading">
+          <div><h2>养成</h2><button id="open-growth" class="text-button" type="button">幼体 · 性格养成中</button></div>
+          <div class="bond"><span>亲密度</span><strong id="bond">0</strong></div>
+        </div>
+        <progress id="growth" max="100" value="0" aria-label="成长进度"></progress>
+        <div id="needs" class="needs" aria-label="宠物状态"></div>
+        <div class="actions">
+          <button type="button" data-action="pat"><span aria-hidden="true">♡</span>摸摸头</button>
+          <button type="button" data-action="feed"><span aria-hidden="true">✿</span>投喂</button>
+          <button type="button" data-action="play"><span aria-hidden="true">✦</span>玩一会儿</button>
+          <button type="button" data-action="sleep" id="sleep"><span aria-hidden="true">☾</span><span id="sleep-label">睡觉</span></button>
+        </div>
+        <div class="focus-control">
+          <button type="button" data-action="focus" id="focus"><span aria-hidden="true">◷</span> <span id="focus-label">一起自习</span></button>
+          <select id="focus-minutes" aria-label="自习时长">
+            <option value="5">5 分钟</option><option value="15">15 分钟</option>
+            <option value="25" selected>25 分钟</option><option value="45">45 分钟</option>
+          </select>
+        </div>
+        <form id="chat" autocomplete="off">
+          <input id="say" name="message" aria-label="跟光崽说话" maxlength="240" placeholder="跟光崽说句话…" required>
+          <button id="send" type="submit" class="primary">发送</button>
+        </form>
+        <p id="chat-status" class="note" role="status">本地对话</p>
+        <p id="chat-reply" class="sr-only" role="status"></p>
+      </section>
+      <section class="card hardware" aria-label="转台联调">
+        <div class="row"><h2>转台联调</h2><span id="connection" class="chip">正在读取</span></div>
+        <div class="sensors">
+          <div><span class="sensor-light" id="left-light"></span>左红外</div>
+          <div><span class="sensor-light" id="right-light"></span>右红外</div>
+          <div id="target">目标：居中</div>
+        </div>
+        <div class="simulate" id="simulate" hidden>
+          <button type="button" data-zone="left">模拟左手</button>
+          <button type="button" data-zone="both">模拟双侧</button>
+          <button type="button" data-zone="right">模拟右手</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+  <dialog id="memory-dialog" aria-labelledby="memory-title">
+    <div class="row"><h2 id="memory-title">光崽的记忆簿</h2><form method="dialog"><button>关闭</button></form></div>
+    <div class="memory-tools">
+      <input id="memory-search" aria-label="搜索记忆" placeholder="搜一搜它记住的事">
+      <button id="export-memory" type="button">导出</button>
+    </div>
+    <div class="memory-tabs" aria-label="记忆类型">
+      <button type="button" data-memory="facts" aria-pressed="true">记住的事</button>
+      <button type="button" data-memory="events" aria-pressed="false">互动与对话</button>
+      <button type="button" data-memory="diary" aria-pressed="false">成长日记</button>
+    </div>
+    <label id="old-facts" class="note"><input type="checkbox" id="include-past">显示已更新的旧记忆</label>
+    <ul id="memory-list"></ul>
+  </dialog>
+  <dialog id="growth-dialog" aria-labelledby="growth-title">
+    <div class="row"><h2 id="growth-title">成长与性格</h2><form method="dialog"><button>关闭</button></form></div>
+    <p id="growth-summary" class="note"></p>
+    <div id="traits" class="traits"></div>
+    <p class="note">摸头增加亲人，投喂增加活泼，玩耍增加好奇，完成自习增加专注。</p>
+  </dialog>
+  <dialog id="optics-dialog" aria-labelledby="optics-title">
+    <div class="row"><h2 id="optics-title">画面校准</h2><form method="dialog"><button>关闭</button></form></div>
+    <form id="optics-form">
+      <label><input name="flipX" type="checkbox">水平镜像</label>
+      <label><input name="flipY" type="checkbox">垂直镜像</label>
+      <label>旋转<select name="rotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+      <label>大小<input name="scale" type="range" min="50" max="140" value="100"></label>
+      <label>水平位置<input name="x" type="range" min="-30" max="30" value="0"></label>
+      <label>垂直位置<input name="y" type="range" min="-30" max="30" value="0"></label>
+      <button type="reset">恢复默认</button>
+    </form>
+    <p class="note">投影时按 G 或双击画面返回控制台。</p>
+  </dialog>
+</body>
+</html>
