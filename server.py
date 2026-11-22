@@ -198,6 +198,7 @@ def main():
                         default=Path(os.getenv("GUANGZAI_DATA_DIR", ROOT / "data")),
                         help="directory for the local SQLite store")
     parser.add_argument("--open", action="store_true", help="open the display in the default browser")
+    parser.add_argument("--demo", action="store_true", help="use faster idle motion and conversation timing")
     parser.add_argument("--deepseek", action="store_true", help="use DeepSeek Flash for free chat")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
@@ -211,7 +212,7 @@ def main():
             parser.error("--deepseek needs DEEPSEEK_API_KEY or a key entered at the local prompt")
         provider = ChatProvider(url="https://api.deepseek.com/chat/completions", model="deepseek-flash", key=key)
     bridge = HardwareBridge(args.serial)
-    companion = Companion(args.data_dir / "guangzai.sqlite3", bridge, provider)
+    companion = Companion(args.data_dir / "guangzai.sqlite3", bridge, provider, demo=args.demo)
     with Server(args.port, companion) as server:
         bridge.start()
         print(f"Guangzai  http://127.0.0.1:{args.port}/", flush=True)

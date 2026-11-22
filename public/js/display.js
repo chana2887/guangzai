@@ -1,6 +1,14 @@
 const OPTICS_KEY = 'guangzai.optics.v1';
 const ANIMATIONS = '/animations/manifest.json';
 const LOOPING = new Set(['idle', 'sleep', 'focus', 'bored', 'think']);
+const IDLE_MOTIONS = {
+  idle_glance: 'idle', idle_lean: 'idle', idle_hop: 'idle',
+  sleep_shift: 'sleep', focus_stretch: 'focus',
+};
+const ONE_SHOTS = new Set([
+  'pat', 'feed', 'play', 'happy', 'sad', 'look', 'look-left', 'look-right',
+  ...Object.keys(IDLE_MOTIONS),
+]);
 const CLIP_NAME = /^[a-zA-Z0-9_-]+\.(mp4|webm)$/;
 
 export class Display {
@@ -35,7 +43,7 @@ export class Display {
       if (!response.ok) return;
       const manifest = await response.json();
       for (const [name, clip] of Object.entries(manifest.clips || {})) {
-        if ((LOOPING.has(name) || ['pat', 'feed', 'play', 'happy', 'sad', 'look', 'look-left', 'look-right'].includes(name))
+        if ((LOOPING.has(name) || ONE_SHOTS.has(name))
             && typeof clip === 'string' && CLIP_NAME.test(clip)) {
           this.clips[name] = clip;
         }
@@ -52,16 +60,17 @@ export class Display {
     this.character.dataset.direction = direction;
     const requested = [direction && this.clips[`${state}-${direction}`], this.clips[state]]
       .find((clip) => clip && !this.failed.has(clip));
-    this.play(requested || this.idleClip(), !requested || LOOPING.has(state));
+    this.play(requested || this.baseClip(state), !requested || LOOPING.has(state));
   }
 
-  idleClip() {
-    return this.failed.has(this.clips.idle) ? '' : this.clips.idle;
+  baseClip(state) {
+    return [this.clips[IDLE_MOTIONS[state]], this.clips.idle]
+      .find((clip) => clip && !this.failed.has(clip));
   }
 
   fallback(clip) {
     this.failed.add(clip);
-    this.play(this.idleClip(), true);
+    this.play(this.baseClip(this.scene.state), true);
   }
 
   play(clip, loop) {

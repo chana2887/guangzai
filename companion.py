@@ -1,6 +1,7 @@
 """Coordinates care, serial motion, SQLite and dialogue for all display clients."""
 
 import time
+from random import Random
 from threading import Lock
 
 from conversation import GREETING, PLAY_RECALL, RECALL, SAD, ChatProvider, learn, offline_reply
@@ -10,20 +11,32 @@ from pet import SCENE_SECONDS
 ACTIONS = {"pat", "feed", "play", "sleep", "focus"}
 FOCUS_MINUTES = {5, 15, 25, 45}
 NUDGE_SECONDS = 6 * 60
+DEMO_NUDGE_SECONDS = 105
+IDLE_INTERVALS = {"awake": 60, "focus": 120, "sleep": 150}
+DEMO_IDLE_INTERVALS = {"awake": 18, "focus": 45, "sleep": 55}
 
 
 class Companion:
-    def __init__(self, path, hardware, provider=None, clock=time.time):
+    def __init__(self, path, hardware, provider=None, clock=time.time, *, demo=False, rng=None):
         self.notebook = Notebook(path)
         self.hardware = hardware
         self.provider = provider or ChatProvider()
         self.clock = clock
+        self.rng = rng if rng is not None else Random(0 if demo else None)
+        self.idle_intervals = DEMO_IDLE_INTERVALS if demo else IDLE_INTERVALS
+        self.nudge_interval = DEMO_NUDGE_SECONDS if demo else NUDGE_SECONDS
         self.chat_lock = Lock()
         self.gesture_lock = Lock()
         self.last_event = 0
         with self.notebook.transaction(write=True) as db:
             now = self.clock()
+            self.demo_nudge_at = now if demo else None
             pet = self.notebook.pet(db, now)
+            pet.idle_motion = ""
+            if demo:
+                pet.message_until = 0
+                if pet.menu_proactive:
+                    pet.close_menu()
             if pet.play_event_id:
                 pet.play_event_id = 0
                 pet.scene_until = pet.message_until = 0
@@ -69,11 +82,19 @@ class Companion:
         self.notebook.add_event(db, "gesture", f"有人从{label}和光崽打招呼。", event_time,
                                 direction=direction, source=report["mode"])
 
-    @staticmethod
-    def can_nudge(pet, now):
-        return (pet.mode == "awake" and not pet.menu_kind and pet.focus_phase != "work" and pet.scene_until <= now and
-                now - max(pet.last_interaction, pet.last_nudge_at) >= NUDGE_SECONDS and
-                (pet.nudge_day != day_of(now) or pet.nudge_count < 3))
+    def can_nudge(self, pet, now):
+        if pet.mode != "awake" or pet.focus_phase or not pet.is_quiet(now) or self.chat_lock.locked():
+            return False
+        if self.demo_nudge_at is not None:
+            return now - max(pet.last_interaction, self.demo_nudge_at) >= self.nudge_interval
+        return (now - max(pet.last_interaction, pet.last_nudge_at) >= self.nudge_interval
+                and (pet.nudge_day != day_of(now) or pet.nudge_count < 3))
+
+    def can_move_idly(self, pet, now):
+        quiet_since = max(pet.last_interaction, pet.last_idle_at, pet.message_until,
+                          pet.scene_until, self.demo_nudge_at or 0)
+        return (pet.is_quiet(now) and not self.chat_lock.locked()
+                and now - quiet_since >= self.idle_intervals[pet.idle_mode()])
 
     def nudge(self, db, pet, now):
         if not self.can_nudge(pet, now):
@@ -82,15 +103,24 @@ class Companion:
         lines = {
             "hungry": "等你忙完，可以给我留一小口点心。",
             "tired": "我有点困了，眯会儿再一起玩吧。",
-            "lonely": "想歇一会儿的话，可以来摸摸我的头。",
-            "bored": "我在桌边待着。忙完了叫我一声。",
+            "lonely": "我一个人待了一会儿。要不要摸摸我的头？",
+            "bored": "我在桌边待着。你要不要也歇一会儿？",
         }
         if mood not in lines:
             return False
-        if mood in {"lonely", "bored"} and self.notebook.has_completed_play(db):
-            pet.open_menu("invite", now)
+        if mood in {"lonely", "bored"}:
+            affection, playfulness = pet.traits["affection"], pet.traits["curiosity"]
+            if affection >= 55 and affection > playfulness:
+                pet.open_menu("pat_invite", now, proactive=True)
+            elif playfulness >= 55 or self.notebook.has_completed_play(db):
+                pet.open_menu("invite", now, proactive=True)
+            else:
+                pet.speak(lines[mood], now)
         else:
             pet.speak(lines[mood], now)
+        if self.demo_nudge_at is not None:
+            self.demo_nudge_at = now
+            return True
         pet.last_nudge_at = now
         day = day_of(now)
         if pet.nudge_day != day:
@@ -114,7 +144,7 @@ class Companion:
     def state_needs_write(self, pet, new_gesture, now):
         return (new_gesture or (pet.focus_phase and now >= pet.focus_until) or
                 pet.play_is_due(now) or (pet.menu_kind and now >= pet.menu_until) or
-                now - pet.updated_at >= 300 or self.can_nudge(pet, now))
+                now - pet.updated_at >= 300 or self.can_nudge(pet, now) or self.can_move_idly(pet, now))
 
     def state(self):
         with self.gesture_lock:
@@ -132,7 +162,9 @@ class Companion:
                 self.advance(db, pet, now)
                 if new_gesture:
                     self.receive_gesture(db, pet, report, now)
-                self.nudge(db, pet, now)
+                if not self.nudge(db, pet, now) and self.can_move_idly(pet, now):
+                    pet.idle_motion = pet.choose_idle_motion(self.rng)
+                    pet.last_idle_at = now
                 self.notebook.save(db, pet)
                 result = self.view(db, pet, report, now)
             self.last_event = report["event"]

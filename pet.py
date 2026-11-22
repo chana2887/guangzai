@@ -18,11 +18,16 @@ MOODS = {
 STAGES = [(0, "幼体"), (60, "幼崽"), (180, "成长期"), (400, "成熟期")]
 COOLDOWNS = {"pat": 4, "feed": 6, "play": 20, "sleep": 1, "focus": 1}
 SCENE_SECONDS = {"pat": 1.8, "feed": 2.8, "play": 3.2, "look": 1.8, "happy": 1.8, "sad": 2.1}
+IDLE_MOTION_SECONDS = {
+    "idle_glance": 2.2, "idle_lean": 2.2, "idle_hop": 2.2,
+    "sleep_shift": 3.2, "focus_stretch": 2.6,
+}
 MAX_OFFLINE_SECONDS = 8 * 3600
 MENU_TIMEOUT = 30
 MENUS = {
     "activities": ("想一起做点什么？", (("pat", "摸摸头"), ("feed", "投喂"), ("invite", "玩耍"), ("back", "返回"))),
     "invite": ("要不要一起玩？", (("play", "一起玩"), ("later", "晚点吧"))),
+    "pat_invite": ("你忙完啦？可以摸摸我的头吗？", (("pat", "摸摸头"), ("later", "晚点吧"))),
 }
 
 
@@ -56,10 +61,13 @@ class Pet:
     nudge_day: str = ""
     nudge_count: int = 0
     menu_kind: str = ""
+    menu_proactive: bool = False
     menu_index: int = 0
     menu_revision: int = 0
     menu_until: float = 0.0
     play_event_id: int = 0
+    idle_motion: str = ""
+    last_idle_at: float = 0.0
 
     @classmethod
     def new(cls, now):
@@ -71,6 +79,8 @@ class Pet:
     def advance(self, now):
         if self.menu_kind and now >= self.menu_until:
             self.close_menu()
+            self.last_idle_at = now
+            self.idle_motion = ""
         if now <= self.updated_at:
             return []
         hours = min(now - self.updated_at, MAX_OFFLINE_SECONDS) / 3600
@@ -118,6 +128,9 @@ class Pet:
         return "happy" if self.joy >= 65 else "calm"
 
     def animation(self, now):
+        if (self.idle_motion and self.last_idle_at > self.last_interaction and self.is_quiet(now)
+                and now < self.last_idle_at + IDLE_MOTION_SECONDS[self.idle_motion]):
+            return self.idle_motion, ""
         if self.mode == "sleep":
             return "sleep", ""
         if self.focus_phase == "work":
@@ -126,6 +139,27 @@ class Pet:
             return self.scene, self.direction if self.scene == "look" else ""
         mood = self.mood(now)
         return ("bored" if mood in {"bored", "lonely", "tired"} else "idle"), ""
+
+    def is_quiet(self, now):
+        return (not self.menu_kind and now >= self.scene_until
+                and now >= self.message_until and now >= self.motion_until)
+
+    def idle_mode(self):
+        if self.mode == "sleep":
+            return "sleep"
+        return "focus" if self.focus_phase == "work" else "awake"
+
+    def choose_idle_motion(self, rng):
+        mode = self.idle_mode()
+        if mode == "sleep":
+            return "sleep_shift"
+        if mode == "focus":
+            return "focus_stretch"
+        if self.energy <= 28 or self.fullness <= 30:
+            return "idle_glance"
+        lean = 1 + max(0, self.traits["affection"] - 50) * 0.35
+        hop = 1 + max(0, self.traits["curiosity"] - 50) * 0.35
+        return rng.choices(("idle_glance", "idle_lean", "idle_hop"), weights=(3, lean, hop))[0]
 
     def speak(self, text, now, seconds=8):
         self.message = text
@@ -139,8 +173,9 @@ class Pet:
     def play_is_due(self, now):
         return bool(self.play_event_id and now >= self.scene_until)
 
-    def open_menu(self, kind, now):
+    def open_menu(self, kind, now, *, proactive=False):
         self.menu_kind = kind
+        self.menu_proactive = proactive
         self.menu_index = 0
         self.message_until = 0
         self.refresh_menu(now)
@@ -153,6 +188,7 @@ class Pet:
         if self.menu_kind:
             self.menu_revision += 1
         self.menu_kind = ""
+        self.menu_proactive = False
         self.menu_index = 0
         self.menu_until = 0
 
@@ -164,6 +200,7 @@ class Pet:
     def press(self, key, now):
         """Advance one menu step and return a care action only on final confirmation."""
         self.last_interaction = now
+        self.menu_proactive = False
         if not self.menu_kind:
             self.open_menu("activities", now)
         elif key == "center":
@@ -184,7 +221,10 @@ class Pet:
         self.last_interaction = now
         self.direction = direction
         self.motion_until = now + SCENE_SECONDS["look"]
-        if self.mode != "sleep" and self.focus_phase != "work":
+        if self.menu_proactive:
+            self.close_menu()
+        if (self.mode != "sleep" and self.focus_phase != "work" and not self.menu_kind
+                and (now >= self.scene_until or self.scene == "look") and not self.play_event_id):
             self.react("look", now)
             self.speak(
                 "左边有人挥手，我看到啦。" if direction == "left" else "嗨，右边有动静！",
