@@ -99,6 +99,7 @@ h2 { font-size: 1rem; }
   overflow-wrap: anywhere;
   background: #142431;
 }
+#stage-message { white-space: pre-line; }
 #stage-choices {
   display: flex;
   flex-wrap: wrap;

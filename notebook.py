@@ -12,7 +12,8 @@ from pathlib import Path
 from pet import Pet
 
 LABELS = {
-    "pat": "摸摸头", "feed": "投喂", "play": "玩一会儿", "sleep": "睡觉", "wake": "醒来",
+    "pat": "摸摸头", "feed": "投喂", "play": "开始玩耍", "play_done": "完成玩耍",
+    "sleep": "睡觉", "wake": "醒来",
     "focus_start": "开始自习", "focus_done": "完成自习", "focus_stop": "结束计时",
     "chat": "对话", "gesture": "挥手", "level": "成长",
 }
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS event (
     data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS event_day ON event(day, id);
+CREATE INDEX IF NOT EXISTS event_kind ON event(kind, id);
 CREATE TABLE IF NOT EXISTS fact (
     id INTEGER PRIMARY KEY,
     key TEXT NOT NULL,
@@ -99,8 +101,13 @@ class Notebook:
 
     @staticmethod
     def add_event(db, kind, text, now, **data):
-        db.execute("INSERT INTO event(time, day, kind, text, data) VALUES (?, ?, ?, ?, ?)",
-                   (now, day_of(now), kind, text, json.dumps(data, ensure_ascii=False)))
+        event = db.execute("INSERT INTO event(time, day, kind, text, data) VALUES (?, ?, ?, ?, ?)",
+                           (now, day_of(now), kind, text, json.dumps(data, ensure_ascii=False)))
+        return event.lastrowid
+
+    @staticmethod
+    def has_completed_play(db):
+        return db.execute("SELECT 1 FROM event WHERE kind = 'play_done' LIMIT 1").fetchone() is not None
 
     @staticmethod
     def save_fact(db, fact, now):
@@ -177,7 +184,7 @@ class Notebook:
         for day, counts in days.items():
             parts = []
             for kind, line in [
-                ("pat", "摸摸头 {} 次"), ("feed", "吃点心 {} 次"), ("play", "一起玩了 {} 次"),
+                ("pat", "摸摸头 {} 次"), ("feed", "吃点心 {} 次"), ("play_done", "一起玩了 {} 次"),
                 ("chat", "聊了 {} 句"), ("gesture", "打了 {} 次招呼"), ("focus_done", "陪你自习 {} 分钟"),
             ]:
                 if counts[kind]:
