@@ -4,13 +4,16 @@ import argparse
 import json
 import os
 import re
+import sys
 import webbrowser
 from functools import partial
+from getpass import getpass
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from companion import ACTIONS, FOCUS_MINUTES, Companion
+from conversation import ChatProvider
 from hardware import HardwareBridge
 
 ROOT = Path(__file__).resolve().parent
@@ -177,6 +180,15 @@ class Handler(SimpleHTTPRequestHandler):
         return self.json_response(200, result)
 
 
+class Server(ThreadingHTTPServer):
+    def __init__(self, port, companion):
+        self.companion = companion
+        super().__init__(("127.0.0.1", port), partial(Handler, companion=companion, port=port))
+
+    def service_actions(self):
+        self.companion.tick()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8780")))
@@ -186,13 +198,21 @@ def main():
                         default=Path(os.getenv("GUANGZAI_DATA_DIR", ROOT / "data")),
                         help="directory for the local SQLite store")
     parser.add_argument("--open", action="store_true", help="open the display in the default browser")
+    parser.add_argument("--deepseek", action="store_true", help="use DeepSeek Flash for free chat")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
+    provider = None
+    if args.deepseek:
+        key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+        if not key and sys.stdin.isatty():
+            key = getpass("DeepSeek API key (hidden): ").strip()
+        if not key:
+            parser.error("--deepseek needs DEEPSEEK_API_KEY or a key entered at the local prompt")
+        provider = ChatProvider(url="https://api.deepseek.com/chat/completions", model="deepseek-flash", key=key)
     bridge = HardwareBridge(args.serial)
-    companion = Companion(args.data_dir / "guangzai.sqlite3", bridge)
-    handler = partial(Handler, companion=companion, port=args.port)
-    with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
+    companion = Companion(args.data_dir / "guangzai.sqlite3", bridge, provider)
+    with Server(args.port, companion) as server:
         bridge.start()
         print(f"Guangzai  http://127.0.0.1:{args.port}/", flush=True)
         print(f"Input: {args.serial or 'simulator'} | Chat: {'configured AI' if companion.provider.enabled else 'local'}",

@@ -86,6 +86,67 @@ class CompanionTests(unittest.TestCase):
         self.clock.step(3600)
         self.assertGreater(self.open().state()["needs"][1]["value"], 90)
 
+    def invite_to_play(self):
+        for key in ("center", "right", "right", "center"):
+            state = self.key(key)
+        return state["menu"]["prompt"]
+
+    def test_completed_play_is_remembered_once_after_restart(self):
+        self.assertNotIn("上次", self.invite_to_play())
+        self.key("center")
+        self.assertFalse(any(row["kind"] == "play_done" for row in self.pet.history("events")))
+        self.clock.step(4)
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            state = workers.submit(self.pet.state)
+            completion = workers.submit(self.pet.tick)
+            state.result()
+            completion.result()
+        completed = [row for row in self.pet.history("events") if row["kind"] == "play_done"]
+        self.assertEqual(len(completed), 1)
+        self.assertIn("play_event_id", completed[0]["data"])
+
+        self.pet = self.open()
+        self.assertIn("上次一起玩", self.pet.chat("你还记得我们上次一起玩吗？")["reply"])
+        self.assertIn("上次一起玩", self.invite_to_play())
+        self.key("left")
+        self.key("center")
+        self.clock.step(4)
+        self.assertEqual(len([row for row in self.pet.history("events") if row["kind"] == "play_done"]), 1)
+        self.clock.step(6 * 60)
+        self.assertIn("上次一起玩", self.pet.state()["menu"]["prompt"])
+
+    def test_interrupted_play_and_decline_do_not_become_memories(self):
+        self.invite_to_play()
+        self.key("left")
+        self.key("center")
+        self.assertNotIn("上次", self.invite_to_play())
+        self.key("center")
+        self.pet = self.open()
+        self.clock.step(4)
+        self.pet.state()
+        self.assertNotIn("上次", self.invite_to_play())
+        self.assertFalse(any(row["kind"] == "play_done" for row in self.pet.history("events")))
+
+    def test_name_greeting_and_math_use_the_expected_sources(self):
+        class FakeModel:
+            enabled = True
+
+            def reply(self, text, view, memories, recent):
+                if "泰勒展开" not in text:
+                    raise AssertionError("a local greeting was sent to the model")
+                return "e^x = 1 + x + x^2/2! + x^3/3! + …"
+
+        self.pet.chat("以后叫我小王")
+        self.pet.chat("以后叫我小棋")
+        restarted = Companion(self.path, self.hardware, FakeModel(), self.clock)
+        greeting = restarted.chat("你好")
+        self.assertEqual(greeting["source"], "local")
+        self.assertIn("小棋", greeting["state"]["message"])
+        self.assertNotIn("小王", greeting["state"]["message"])
+        answer = restarted.chat("e^x 在 x=0 处的泰勒展开是什么？")
+        self.assertEqual(answer["source"], "ai")
+        self.assertIn("x^2/2!", answer["state"]["message"])
+
     def test_focus_completion_crosses_restart_and_rewards_once(self):
         self.pet.interact("focus", 25)
         self.assertFalse(self.pet.interact("play")["accepted"])

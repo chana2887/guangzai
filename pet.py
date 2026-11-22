@@ -22,7 +22,7 @@ MAX_OFFLINE_SECONDS = 8 * 3600
 MENU_TIMEOUT = 30
 MENUS = {
     "activities": ("想一起做点什么？", (("pat", "摸摸头"), ("feed", "投喂"), ("invite", "玩耍"), ("back", "返回"))),
-    "invite": ("陪我玩一会儿，好吗？", (("play", "一起玩"), ("later", "晚点吧"))),
+    "invite": ("要不要一起玩？", (("play", "一起玩"), ("later", "晚点吧"))),
 }
 
 
@@ -59,6 +59,7 @@ class Pet:
     menu_index: int = 0
     menu_revision: int = 0
     menu_until: float = 0.0
+    play_event_id: int = 0
 
     @classmethod
     def new(cls, now):
@@ -131,8 +132,22 @@ class Pet:
         self.message_until = now + seconds
 
     def react(self, scene, now, seconds=None):
+        self.play_event_id = 0
         self.scene = scene
         self.scene_until = now + (seconds or SCENE_SECONDS[scene])
+
+    def play_is_due(self, now):
+        return bool(self.play_event_id and now >= self.scene_until)
+
+    def open_menu(self, kind, now):
+        self.menu_kind = kind
+        self.menu_index = 0
+        self.message_until = 0
+        self.refresh_menu(now)
+
+    def refresh_menu(self, now):
+        self.menu_revision += 1
+        self.menu_until = now + MENU_TIMEOUT
 
     def close_menu(self):
         if self.menu_kind:
@@ -150,8 +165,7 @@ class Pet:
         """Advance one menu step and return a care action only on final confirmation."""
         self.last_interaction = now
         if not self.menu_kind:
-            self.menu_kind = "activities"
-            self.message_until = 0
+            self.open_menu("activities", now)
         elif key == "center":
             action = MENUS[self.menu_kind][1][self.menu_index][0]
             if action != "invite":
@@ -159,13 +173,11 @@ class Pet:
                 if action == "later":
                     self.speak("好呀，你忙。我在这里。", now, 5)
                 return action if action in COOLDOWNS else None
-            self.menu_kind = "invite"
-            self.menu_index = 0
+            self.open_menu("invite", now)
         else:
             offset = -1 if key == "left" else 1
             self.menu_index = (self.menu_index + offset) % len(MENUS[self.menu_kind][1])
-        self.menu_revision += 1
-        self.menu_until = now + MENU_TIMEOUT
+            self.refresh_menu(now)
         return None
 
     def gesture(self, direction, now):
@@ -197,6 +209,7 @@ class Pet:
         self.cooldowns[action] = now
         self.last_interaction = now
         if action == "sleep":
+            self.play_event_id = 0
             self.scene_until = 0
             self.focus_phase, self.focus_until = "", 0
             if self.mode == "sleep":
@@ -206,6 +219,7 @@ class Pet:
             return True, "sleep", "我把眼睛闭一会儿，你忙你的。"
 
         if action == "focus":
+            self.play_event_id = 0
             self.scene_until = 0
             self.mode = "awake"
             if self.focus_phase:
