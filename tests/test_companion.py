@@ -1,11 +1,15 @@
 import tempfile
 import unittest
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from random import Random
 
 from companion import Companion
 from conversation import learn
 from hardware import HardwareBridge
+from notebook import day_of
+from pet import Pet
 
 
 class Clock:
@@ -215,3 +219,111 @@ class CompanionTests(unittest.TestCase):
             self.assertEqual(self.pet.state()["message"], "")
         self.clock.step(361)
         self.assertEqual(self.pet.state()["message"], "")
+
+    def test_demo_shows_motion_and_invitation_then_returns_to_idle(self):
+        pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True, rng=Random(8))
+        self.clock.step(20)
+        self.assertIn(pet.state()["scene"], {"idle_glance", "idle_lean", "idle_hop"})
+        self.assertFalse(pet.state()["message"])
+        self.clock.step(90)
+        invitation = pet.state()
+        self.assertTrue(invitation["message"] or invitation["menu"]["prompt"])
+        self.clock.step(9)
+        after = pet.state()
+        self.assertFalse(after["message"])
+        self.assertFalse(after["menu"]["choices"])
+        self.assertIn(after["scene"], {"idle", "bored"})
+
+    def test_personality_weights_and_drowsy_motion(self):
+        affectionate = Pet.new(self.clock())
+        playful = Pet.new(self.clock())
+        affectionate.traits["affection"] = 75
+        playful.traits["curiosity"] = 75
+
+        def sample(profile):
+            rng = Random(42)
+            return Counter(profile.choose_idle_motion(rng) for _ in range(120))
+
+        affectionate_motion = sample(affectionate)
+        playful_motion = sample(playful)
+        self.assertGreater(affectionate_motion["idle_lean"], playful_motion["idle_lean"])
+        self.assertGreater(playful_motion["idle_hop"], affectionate_motion["idle_hop"])
+        playful.energy = 20
+        self.assertEqual(sample(playful), {"idle_glance": 120})
+
+    def test_demo_invitation_uses_personality_and_rejects_expired_button(self):
+        pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+        with pet.notebook.transaction(write=True) as db:
+            profile = pet.notebook.pet(db, self.clock())
+            profile.traits["affection"] = 70
+            pet.notebook.save(db, profile)
+        self.clock.step(110)
+        menu = pet.state()["menu"]
+        self.assertEqual(menu["choices"], ["摸摸头", "晚点吧"])
+        self.clock.step(31)
+        self.assertFalse(pet.button("center", menu["revision"])["accepted"])
+        self.assertFalse(pet.state()["menu"]["choices"])
+        self.assertFalse(pet.state()["message"])
+
+    def test_gesture_overrides_ambient_motion_and_delays_invitation(self):
+        pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+        self.clock.step(104)
+        self.assertIn(pet.state()["scene"], {"idle_glance", "idle_lean", "idle_hop"})
+        self.clock.step(1)
+        self.assertTrue(self.hardware.simulate("left"))
+        state = pet.state()
+        self.assertEqual((state["scene"], state["direction"]), ("look", "left"))
+        self.assertFalse(state["menu"]["choices"])
+        self.clock.step(4)
+        self.assertFalse(pet.state()["message"])
+
+    def test_sleep_and_study_have_quieter_motion_without_invitations(self):
+        pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+        pet.interact("sleep")
+        self.clock.step(20)
+        self.assertEqual(pet.state()["scene"], "sleep")
+        self.clock.step(90)
+        state = pet.state()
+        self.assertEqual(state["scene"], "sleep_shift")
+        self.assertFalse(state["message"] or state["menu"]["prompt"])
+        pet.interact("focus", 5)
+        self.clock.step(20)
+        self.assertEqual(pet.state()["scene"], "focus")
+        self.clock.step(90)
+        state = pet.state()
+        self.assertEqual(state["scene"], "focus_stretch")
+        self.assertFalse(state["message"] or state["menu"]["prompt"])
+
+    def test_gesture_replaces_a_pending_invitation_but_leaves_user_menu_open(self):
+        pet = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+        with pet.notebook.transaction(write=True) as db:
+            profile = pet.notebook.pet(db, self.clock())
+            profile.traits["curiosity"] = 75
+            pet.notebook.save(db, profile)
+        self.clock.step(108)
+        invite = pet.state()["menu"]
+        self.assertEqual(invite["choices"], ["一起玩", "晚点吧"])
+        self.assertTrue(self.hardware.simulate("right"))
+        state = pet.state()
+        self.assertEqual((state["scene"], state["direction"]), ("look", "right"))
+        self.assertFalse(state["menu"]["choices"])
+        self.assertFalse(pet.button("center", invite["revision"])["accepted"])
+        opened = pet.button("center", state["menu"]["revision"])["state"]
+        self.hardware.sim_armed_at = 0
+        self.assertTrue(self.hardware.simulate("left"))
+        self.assertEqual(pet.state()["menu"], opened["menu"])
+
+    def test_demo_starts_again_after_restart_and_leaves_daily_limit_unchanged(self):
+        with self.pet.notebook.transaction(write=True) as db:
+            profile = self.pet.notebook.pet(db, self.clock())
+            profile.nudge_day = day_of(self.clock())
+            profile.nudge_count = 3
+            self.pet.notebook.save(db, profile)
+        for _ in range(2):
+            demo = Companion(self.path, self.hardware, LocalProvider(), self.clock, demo=True)
+            self.assertFalse(demo.state()["message"])
+            self.clock.step(105)
+            self.assertTrue(demo.state()["message"])
+            self.clock.step(10)
+        self.clock.step(361)
+        self.assertFalse(self.open().state()["message"])

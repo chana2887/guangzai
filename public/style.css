@@ -215,21 +215,26 @@ h2 { font-size: 1rem; }
 .sleep-mark, .sparkle { opacity: 0; color: #b1e8ee; font-size: 12cqw; line-height: 1; }
 .sleep-mark { right: -8%; top: -6%; }
 .sparkle { right: -14%; top: 12%; color: #ffe399; }
-[data-state=sleep] .penguin { animation-duration: 5.4s; transform: rotate(-8deg); }
-:is([data-state=sleep], [data-state=pat], [data-state=happy]) .eye {
+:is([data-state=sleep], [data-state=sleep_shift]) .penguin { animation-duration: 5.4s; transform: rotate(-8deg); }
+:is([data-state=sleep], [data-state=sleep_shift], [data-state=pat], [data-state=happy]) .eye {
   border-top: .11em solid #16263c;
   background: none;
   height: 9%;
   animation: none;
 }
-[data-state=sleep] .sleep-mark { opacity: 1; animation: drift 2.9s ease-in-out infinite; }
+:is([data-state=sleep], [data-state=sleep_shift]) .sleep-mark { opacity: 1; animation: drift 2.9s ease-in-out infinite; }
 [data-state=think] .head { transform: rotate(-9deg); }
-[data-state=focus] .head { transform: translateY(3%); }
+:is([data-state=focus], [data-state=focus_stretch]) .head { transform: translateY(3%); }
 [data-state=bored] .head, [data-state=sad] .head { transform: translateY(8%) rotate(6deg); }
 [data-state=pat] .penguin { animation: rock .7s ease-in-out 2; }
 [data-state=feed] .penguin { animation: nibble .44s ease-in-out 5; }
 [data-state=happy] .penguin { animation: hop .58s ease-in-out 3; }
 [data-state=play] .penguin { animation: rock .7s ease-in-out 4; }
+[data-state=idle_glance] .head { animation: idle-glance 2.1s ease-in-out; }
+[data-state=idle_lean] .penguin { animation: idle-lean 2.1s ease-in-out; }
+[data-state=idle_hop] .penguin { animation: hop .7s ease-in-out 2; }
+[data-state=sleep_shift] .penguin { animation: sleep-shift 3.1s ease-in-out; }
+[data-state=focus_stretch] .penguin { animation: focus-stretch 2.5s ease-in-out; }
 :is([data-state=pat], [data-state=happy], [data-state=feed]) .sparkle { opacity: 1; animation: drift 1.4s ease-in-out infinite; }
 @keyframes breathe { 50% { scale: 1.015 .978; } }
 @keyframes blink { 0%, 43%, 47%, 100% { scale: 1; } 45% { scale: 1 .13; } }
@@ -237,6 +242,13 @@ h2 { font-size: 1rem; }
 @keyframes nibble { 50% { scale: 1.02 .93; } }
 @keyframes hop { 50% { translate: 0 -8%; } }
 @keyframes drift { 50% { translate: 0 -25%; opacity: .65; } }
+@keyframes idle-glance {
+  32% { translate: -7%; rotate: -5deg; }
+  72% { translate: 7%; rotate: 5deg; }
+}
+@keyframes idle-lean { 45%, 65% { scale: 1.09; translate: 0 4%; rotate: -6deg; } }
+@keyframes sleep-shift { 45%, 65% { translate: 3% 1%; rotate: 5deg; } }
+@keyframes focus-stretch { 45%, 65% { scale: .98 1.08; } }
 .controls, .display-column { display: grid; align-content: start; grid-auto-rows: max-content; gap: 12px; min-width: 0; }
 .card { background: #fff; border: 1px solid #dce7e7; border-radius: 16px; padding: clamp(12px, 2vw, 20px); }
 .pet-heading p, .note { font-size: .8rem; color: #52676d; margin-top: 6px; }
@@ -304,5 +316,5 @@ dialog::backdrop { background: #0a1526aa; }
   .focus-control { margin-bottom: 7px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .penguin, .eye, .sleep-mark, .sparkle { animation: none !important; }
+  .penguin, .head, .eye, .sleep-mark, .sparkle { animation: none !important; }
 }
