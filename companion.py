@@ -47,16 +47,16 @@ class Companion:
         current = pet.progress()
         stage = current["stage"]
         if stage != previous["stage"]:
-            self.notebook.add_event(db, "level", f"光崽成长为{stage}。", now)
+            self.notebook.add_event(db, "level", f"小黑成长为{stage}。", now)
         rewards = {reward: label for reward, label in pet.rewards_at(pet.xp).items()
                    if reward not in previous["unlocked"]}
         if rewards:
             names = "、".join(rewards.values())
-            self.notebook.add_event(db, "unlock", f"光崽解锁了{names}。", now, rewards=list(rewards))
+            self.notebook.add_event(db, "unlock", f"小黑解锁了{names}。", now, rewards=list(rewards))
 
     def advance(self, db, pet, now):
         if pet.play_is_due(now):
-            self.notebook.add_event(db, "play_done", "和光崽一起玩完了一轮。", pet.scene_until,
+            self.notebook.add_event(db, "play_done", "和小黑一起玩完了一轮。", pet.scene_until,
                                     play_event_id=pet.play_event_id)
             pet.play_event_id = 0
         previous = pet.progress()
@@ -85,7 +85,7 @@ class Companion:
         if event_time >= pet.last_interaction:
             pet.gesture(direction, event_time)
         label = "左侧" if direction == "left" else "右侧"
-        self.notebook.add_event(db, "gesture", f"有人从{label}和光崽打招呼。", event_time,
+        self.notebook.add_event(db, "gesture", f"有人从{label}和小黑打招呼。", event_time,
                                 direction=direction, source=report["mode"])
 
     def can_nudge(self, pet, now):

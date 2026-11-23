@@ -1,5 +1,41 @@
 {
-  "clips": {},
-  "scenes": {},
-  "outfits": { "scarf": {} }
+  "clips": {
+    "idle": "lxh-idle.mp4",
+    "look": "lxh-look.mp4",
+    "look-left": "lxh-look-left.mp4",
+    "look-right": "lxh-look-right.mp4",
+    "pat": "lxh-pat.mp4",
+    "feed": "lxh-feed.mp4",
+    "play": "lxh-play.mp4",
+    "happy": "lxh-happy.mp4",
+    "sad": "lxh-sad.mp4",
+    "sleep": "lxh-sleep.mp4",
+    "focus": "lxh-focus.mp4",
+    "bored": "lxh-bored.mp4",
+    "think": "lxh-think.mp4",
+    "idle_glance": "lxh-idle_glance.mp4",
+    "idle_lean": "lxh-idle_lean.mp4",
+    "idle_hop": "lxh-idle_hop.mp4",
+    "sleep_shift": "lxh-sleep_shift.mp4",
+    "focus_stretch": "lxh-focus_stretch.mp4",
+    "wave-left": "lxh-wave-left.mp4",
+    "wave-right": "lxh-wave-right.mp4",
+    "focus_invite": "lxh-focus_invite.mp4"
+  },
+  "scenes": {
+    "study": {
+      "lamp": "lxh-study-lamp.png",
+      "books": "lxh-study-books.png"
+    }
+  },
+  "outfits": {
+    "scarf": {
+      "idle": "lxh-idle-scarf.mp4",
+      "look-left": "lxh-look-left-scarf.mp4",
+      "look-right": "lxh-look-right-scarf.mp4",
+      "play": "lxh-play-scarf.mp4",
+      "wave-left": "lxh-wave-left-scarf.mp4",
+      "wave-right": "lxh-wave-right-scarf.mp4"
+    }
+  }
 }

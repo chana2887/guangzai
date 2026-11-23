@@ -7,7 +7,7 @@ const IDLE_MOTIONS = {
 };
 const ONE_SHOTS = new Set([
   'pat', 'feed', 'play', 'happy', 'sad', 'look', 'look-left', 'look-right',
-  'wave', 'wave-left', 'wave-right',
+  'wave', 'wave-left', 'wave-right', 'focus_invite',
   ...Object.keys(IDLE_MOTIONS),
 ]);
 const CLIP_NAME = /^[a-zA-Z0-9_-]+\.(mp4|webm)$/;
@@ -20,16 +20,16 @@ function readClips(clips) {
 }
 
 export class Display {
-  constructor({ optics, character, video, form, decor, sceneArt }) {
+  constructor({ optics, character, video, form, decor, sceneArt, lampArt, booksArt }) {
     this.optics = optics;
     this.character = character;
     this.video = video;
     this.form = form;
     this.decor = decor;
-    this.sceneArt = sceneArt;
+    this.roomImages = { scene: sceneArt, lamp: lampArt, books: booksArt };
     this.clips = {};
     this.scarfClips = {};
-    this.sceneImage = '';
+    this.studyArt = {};
     this.failed = new Set();
     this.scene = { state: 'idle', direction: '' };
     this.appearance = { room: 'plain', outfit: 'plain' };
@@ -48,8 +48,10 @@ export class Display {
     video.addEventListener('error', () => {
       if (this.source && video.error) this.fallback(this.source);
     });
-    sceneArt.addEventListener('load', () => { sceneArt.hidden = false; });
-    sceneArt.addEventListener('error', () => { sceneArt.hidden = true; });
+    for (const image of Object.values(this.roomImages)) {
+      image.addEventListener('load', () => { image.hidden = !image.hasAttribute('src'); });
+      image.addEventListener('error', () => { image.hidden = true; });
+    }
   }
 
   async loadClips() {
@@ -60,7 +62,7 @@ export class Display {
       this.clips = readClips(manifest.clips);
       this.scarfClips = readClips(manifest.outfits?.scarf);
       const study = manifest.scenes?.study;
-      this.sceneImage = typeof study === 'string' && IMAGE_NAME.test(study) ? study : '';
+      this.studyArt = typeof study === 'string' ? { scene: study } : (study || {});
       this.show(this.scene.state, this.scene.direction);
     } catch (error) {
       console.warn('动画配置读取失败', error.message);
@@ -83,11 +85,15 @@ export class Display {
 
   updateRoom(room) {
     this.decor.dataset.room = room;
-    const url = room === 'study' && this.sceneImage ? `/animations/${this.sceneImage}` : '';
-    if ((this.sceneArt.getAttribute('src') || '') === url) return;
-    this.sceneArt.hidden = true;
-    if (url) this.sceneArt.src = url;
-    else this.sceneArt.removeAttribute('src');
+    for (const [kind, image] of Object.entries(this.roomImages)) {
+      const filename = this.studyArt[kind];
+      const url = room === 'study' && typeof filename === 'string' && IMAGE_NAME.test(filename)
+        ? `/animations/${filename}` : '';
+      if ((image.getAttribute('src') || '') === url) continue;
+      image.hidden = true;
+      if (url) image.src = url;
+      else image.removeAttribute('src');
+    }
   }
 
   baseClip(state, outfit) {

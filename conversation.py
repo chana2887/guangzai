@@ -147,7 +147,7 @@ class ChatProvider:
         context = "；".join(item["display"] for item in memories[:8]) or "暂无"
         needs = "、".join(f"{item['label']}{item['value']}" for item in view["needs"])
         instructions = (
-            "你是光崽，一只住在桌上的小伙伴。说一两句自然的中文短句，"
+            "你是小黑，一只住在桌上的小伙伴。说一两句自然的中文短句，"
             "偶尔嘴硬、熟了会撒娇，遇到负面情绪先接住，别说教。"
             "只输出台词。没有事实就直说记不清。用户新说法优先。"
             "知识问题先给正确的结论再简要解释。公式用像 x^2/2! 这样的纯文本，不使用 LaTeX 或 Markdown。"

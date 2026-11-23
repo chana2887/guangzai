@@ -72,7 +72,7 @@ class CompanionTests(unittest.TestCase):
         self.pet = self.open()
         self.hardware.simulate("left")
         self.assertEqual(self.pet.state()["scene"], "look")
-        self.clock.step(2)
+        self.clock.step(4)
         self.assertEqual(self.pet.state()["scene"], "wave")
         self.assertEqual(self.pet.state()["direction"], "left")
         unlocks = [row for row in self.pet.history("events") if row["kind"] == "unlock"]
@@ -164,7 +164,7 @@ class CompanionTests(unittest.TestCase):
         self.assertNotIn("上次", self.invite_to_play())
         self.key("center")
         self.assertFalse(any(row["kind"] == "play_done" for row in self.pet.history("events")))
-        self.clock.step(4)
+        self.clock.step(5)
         with ThreadPoolExecutor(max_workers=2) as workers:
             state = workers.submit(self.pet.state)
             completion = workers.submit(self.pet.tick)

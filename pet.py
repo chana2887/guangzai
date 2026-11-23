@@ -25,11 +25,14 @@ APPEARANCE = {
     "outfit": (("plain", "默认服装"), ("scarf", "围巾")),
 }
 COOLDOWNS = {"pat": 4, "feed": 6, "play": 20, "sleep": 1, "focus": 1}
-SCENE_SECONDS = {"pat": 1.8, "feed": 2.8, "play": 3.2, "look": 1.8, "happy": 1.8, "sad": 2.1}
-WAVE_SECONDS = 2.2
+SCENE_SECONDS = {
+    "pat": 4.6, "feed": 4.8, "play": 4.8, "look": 3.6,
+    "happy": 4.7, "sad": 4.7, "focus_invite": 5.3,
+}
+WAVE_SECONDS = 3.6
 IDLE_MOTION_SECONDS = {
-    "idle_glance": 2.2, "idle_lean": 2.2, "idle_hop": 2.2,
-    "sleep_shift": 3.2, "focus_stretch": 2.6,
+    "idle_glance": 4.8, "idle_lean": 4.8, "idle_hop": 4.8,
+    "sleep_shift": 4.8, "focus_stretch": 4.8,
 }
 MAX_OFFLINE_SECONDS = 8 * 3600
 MENU_TIMEOUT = 30
@@ -198,6 +201,8 @@ class Pet:
         self.menu_index = 0
         self.message_until = 0
         self.refresh_menu(now)
+        if kind == "study_invite":
+            self.react("focus_invite", now)
 
     def refresh_menu(self, now):
         self.menu_revision += 1
@@ -206,6 +211,8 @@ class Pet:
     def close_menu(self):
         if self.menu_kind:
             self.menu_revision += 1
+        if self.menu_kind == "study_invite" and self.scene == "focus_invite":
+            self.scene_until = 0
         self.menu_kind = ""
         self.menu_proactive = False
         self.menu_index = 0
@@ -274,7 +281,7 @@ class Pet:
         if now - self.cooldowns.get(action, -100) < COOLDOWNS[action]:
             return False, "", "等我缓一缓。"
         if self.mode == "sleep" and action not in {"sleep", "focus"}:
-            return False, "", "光崽正在睡觉，叫醒它就能继续玩。"
+            return False, "", "小黑正在睡觉，叫醒它就能继续玩。"
         if self.focus_phase == "work" and action not in {"sleep", "focus"}:
             return False, "", "我陪你自习呢，休息了再玩。"
         if action == "feed" and self.fullness >= 96:

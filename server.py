@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import webbrowser
+from contextlib import suppress
 from functools import partial
 from getpass import getpass
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -101,15 +102,17 @@ class Handler(SimpleHTTPRequestHandler):
         return None
 
     def copyfile(self, source, outputfile):
-        remaining = getattr(self, "range_length", None)
-        if remaining is None:
-            return super().copyfile(source, outputfile)
-        while remaining:
-            data = source.read(min(64 * 1024, remaining))
-            if not data:
-                break
-            outputfile.write(data)
-            remaining -= len(data)
+        # A browser switching clips can close an in-flight media range request.
+        with suppress(ConnectionError):
+            remaining = getattr(self, "range_length", None)
+            if remaining is None:
+                return super().copyfile(source, outputfile)
+            while remaining:
+                data = source.read(min(64 * 1024, remaining))
+                if not data:
+                    break
+                outputfile.write(data)
+                remaining -= len(data)
 
     def do_GET(self):
         if not self.local_origin():
@@ -176,7 +179,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response(400, {"error": "说点什么吧，最多 240 字。"})
         result = self.companion.chat(text.strip())
         if result is None:
-            return self.json_response(409, {"error": "光崽还在想上一句话。"})
+            return self.json_response(409, {"error": "小黑还在想上一句话。"})
         return self.json_response(200, result)
 
 

@@ -4,7 +4,8 @@ const element = (id) => document.getElementById(id);
 const display = new Display({
   optics: element('optics'), character: element('character'),
   video: element('clip'), form: element('optics-form'),
-  decor: element('scene-decor'), sceneArt: element('scene-art'),
+  decor: element('scene-decor'),
+  sceneArt: element('scene-art'), lampArt: element('lamp-art'), booksArt: element('books-art'),
 });
 const chat = element('chat');
 const chatStatus = element('chat-status');
@@ -184,7 +185,7 @@ chat.addEventListener('submit', async (event) => {
   if (!text || submittingChat) return;
   submittingChat = true;
   element('send').disabled = true;
-  chatStatus.textContent = '光崽正在想…';
+  chatStatus.textContent = '小黑正在想…';
   chatInput.value = '';
   try {
     const result = await request('/api/chat', { body: { text }, timeout: 12000 });
@@ -214,7 +215,7 @@ function historyRow(item) {
     meta.textContent = `${formatted} · ${item.label}${item.current === 0 ? ' · 已更新' : ''}`;
   }
   row.append(item.display || item.text);
-  if (item.data?.reply) row.appendChild(document.createElement('p')).textContent = `光崽 · ${item.data.reply}`;
+  if (item.data?.reply) row.appendChild(document.createElement('p')).textContent = `小黑 · ${item.data.reply}`;
   return row;
 }
 
@@ -230,7 +231,7 @@ async function loadHistory() {
     list.replaceChildren(...items.map(historyRow));
     if (!items.length) {
       list.appendChild(document.createElement('li')).textContent =
-        query ? '没有找到相关记录。' : '还没有记录。试着告诉光崽一件你喜欢的事。';
+        query ? '没有找到相关记录。' : '还没有记录。试着告诉小黑一件你喜欢的事。';
     }
   } catch {
     if (historyRequest === id) {
