@@ -196,8 +196,8 @@ class Notebook:
                 if counts[kind]:
                     parts.append(line.format(counts[kind]))
             if counts["level"]:
-                parts.append("光崽长大了一点")
+                parts.append("小黑长大了一点")
             if not parts:
-                parts.append("光崽在桌上度过了安静的一天")
+                parts.append("小黑在桌上度过了安静的一天")
             result.append({"day": day, "text": "，".join(parts) + "。"})
         return result

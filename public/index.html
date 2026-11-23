@@ -4,15 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>光崽 · 桌面伙伴</title>
+  <title>罗小黑 V2.0 · 桌面伙伴</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/cat.css">
   <script>if (new URLSearchParams(location.search).get('projection') === '1') document.documentElement.classList.add('projection');</script>
   <script type="module" src="/js/app.js"></script>
 </head>
 <body>
   <main class="shell">
     <header class="masthead console">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">✦</span><h1>光崽</h1></div>
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true"><i></i></span>
+        <h1>罗小黑 <span class="version">V2.0</span></h1>
+      </div>
       <div class="display-buttons">
         <button id="open-memory" type="button">记忆簿</button>
         <button id="open-optics" type="button">画面校准</button>
@@ -24,20 +28,23 @@
       <section class="stage" id="stage" aria-label="宠物画面">
       <div class="stage-label console"><span class="indicator"></span><span id="mood">待机</span></div>
       <div class="optics" id="optics">
-        <div class="penguin-frame" id="character" aria-hidden="true">
-          <div class="penguin">
-            <div class="flipper flipper-left"></div><div class="flipper flipper-right"></div>
-            <div class="foot foot-left"></div><div class="foot foot-right"></div>
-            <div class="coat"><div class="belly"></div></div>
+        <div class="cat-frame" id="character" aria-hidden="true">
+          <div class="cat-shadow"></div>
+          <div class="cat">
+            <div class="tail"></div>
+            <div class="cat-body"></div>
+            <div class="paw paw-left"></div><div class="paw paw-right"></div>
             <div class="scarf"><span></span></div>
             <div class="head">
-              <div class="face"></div>
-              <div class="eye eye-left"></div><div class="eye eye-right"></div>
-              <div class="cheek cheek-left"></div><div class="cheek cheek-right"></div>
-              <div class="beak"></div>
+              <div class="ear ear-left"></div><div class="ear ear-right"></div>
+              <div class="face">
+                <div class="eye eye-left"><i></i></div><div class="eye eye-right"><i></i></div>
+                <div class="muzzle"></div>
+              </div>
             </div>
             <div class="sleep-mark">z<sup>z</sup></div>
             <div class="sparkle">✦</div>
+            <div class="snack"></div>
           </div>
         </div>
         <video id="clip" muted playsinline preload="none" aria-hidden="true" hidden></video>
@@ -45,13 +52,15 @@
           <div class="study-lamp"></div>
           <div class="study-books"><i></i><i></i><i></i></div>
           <img id="scene-art" alt="" hidden>
+          <img id="lamp-art" class="study-art lamp-art" alt="" hidden>
+          <img id="books-art" class="study-art books-art" alt="" hidden>
         </div>
         <div class="stage-message" id="stage-bubble" hidden>
           <p id="stage-message" role="status"></p>
           <ul id="stage-choices" aria-label="可选回应" hidden></ul>
         </div>
+        <div id="focus-clock" class="focus-clock" hidden></div>
       </div>
-      <div id="focus-clock" class="focus-clock console" hidden></div>
       </section>
       <section class="card key-panel console" aria-label="模拟装置按键">
         <div><h2>模拟装置按键</h2><p class="note">按任一键打开菜单 · 键盘 ← → 切换，Enter 确认</p></div>
@@ -88,7 +97,7 @@
           </select>
         </div>
         <form id="chat" autocomplete="off">
-          <input id="say" name="message" aria-label="跟光崽说话" maxlength="240" placeholder="跟光崽说句话…" required>
+          <input id="say" name="message" aria-label="跟小黑说话" maxlength="240" placeholder="跟小黑说句话…" required>
           <button id="send" type="submit" class="primary">发送</button>
         </form>
         <p id="chat-status" class="note" role="status">本地对话</p>
@@ -110,7 +119,7 @@
     </aside>
   </main>
   <dialog id="memory-dialog" aria-labelledby="memory-title">
-    <div class="row"><h2 id="memory-title">光崽的记忆簿</h2><form method="dialog"><button>关闭</button></form></div>
+    <div class="row"><h2 id="memory-title">小黑的记忆簿</h2><form method="dialog"><button>关闭</button></form></div>
     <div class="memory-tools">
       <input id="memory-search" aria-label="搜索记忆" placeholder="搜一搜它记住的事">
       <button id="export-memory" type="button">导出</button>
