@@ -67,6 +67,8 @@ python server.py --deepseek --open
 
 ## 组内联调
 
+第一次接 ESP32，请从[软硬件交接与台架验收单](docs/esp32-handoff.md)开始。先在电脑上用 USB 跑通红外、转台和投影，再按文中的接口约定补齐三个实体键。
+
 - **软件组**用 `server.py` 启动本地服务。提交前可运行 `python -m unittest discover -s tests -v`。
 - **动画组**按 [动画与硬件联调](docs/联调.md) 交付动作和分层道具，并用白底投影核对朝向、循环接缝和对白留白。
 - **硬件组**在 Raspberry Pi OS 桌面用 `bash kiosk.sh` 启动 Chromium 投影。ESP32 通过 USB 串口传红外与转台状态，串口模式需要 `pyserial`。三个实体键和最终反射效果在样机上联调，电脑上可以先用模拟控件。[串口与树莓派说明](docs/联调.md)
